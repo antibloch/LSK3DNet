@@ -145,7 +145,7 @@ def main_worker(local_rank, nprocs, configs):
     points = np.load('pc9.npy')
     feats = np.zeros((points.shape[0],1), dtype=np.float32)
     comb_points = np.concatenate((points, feats), axis=1)
-    val_pt_dataset = SemKITTI_sk_test(points = comb_points, abel_mapping=label_mapping, num_vote = configs.num_vote)
+    val_pt_dataset = SemKITTI_sk_test(points = comb_points, label_mapping=label_mapping, num_vote = configs.num_vote)
 
     val_dataset = get_dataset_class(dataset_config['dataset_type'])(
         val_pt_dataset,
