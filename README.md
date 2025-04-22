@@ -71,6 +71,15 @@ Below is an overview of the key folders and scripts:
 
 Use the following command to install libraries:
   ```bash
+  conda create -n lsk3dnet python=3.7 -y
+  conda activate lsk3dnet
+  conda install -c conda-forge pybind11
+  cd cutils/src
+  mkdir build && cd build
+  cmake ..
+  make
+  # add export PYTHONPATH=$PYTHONPATH:<path-to-library> to ~/.bashrc and source ~/.bashrc
+  cd ../../..
   pip install -r requirements.txt
   ```
 

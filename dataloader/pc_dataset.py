@@ -76,6 +76,44 @@ class SemKITTI_sk(data.Dataset):
         return data_dict, self.im_idx[index]
 
 
+
+class SemKITTI_sk_test(data.Dataset):
+    def __init__(self, points, label_mapping="waymo.yaml", num_vote=1):
+        with open(label_mapping, 'r') as stream:
+            semkittiyaml = yaml.safe_load(stream)
+        self.learning_map = semkittiyaml['learning_map']
+        self.num_vote = num_vote
+
+        self.points = points
+
+    def __len__(self):
+        'Denotes the total number of samples'
+        return 1
+
+    def __getitem__(self, index):
+        raw_data = self.points
+        xyz, feat = raw_data[:, :3], raw_data[:, 3:4]
+        origin_len = len(raw_data)
+
+
+        sem_data = np.expand_dims(np.zeros_like(raw_data[:, 0], dtype=int), axis=1)
+        inst_data = np.expand_dims(np.zeros_like(raw_data[:,0], dtype=np.uint32),axis=1)
+
+
+        origin_len = len(xyz)
+
+        data_dict = {}
+        data_dict['xyz'] = xyz
+        data_dict['labels'] = sem_data.astype(np.uint8)
+        data_dict['instance_label'] = inst_data
+        data_dict['signal'] = feat
+        data_dict['origin_len'] = origin_len
+
+        return data_dict, self.im_idx[index]
+
+
+
+
 @register_dataset
 class nuScenes(data.Dataset):
     def __init__(self, config, data_path, imageset='train', num_vote=1):

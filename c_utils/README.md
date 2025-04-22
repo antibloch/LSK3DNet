@@ -6,14 +6,14 @@ using the [pybind11 library](https://github.com/pybind/pybind11). At least versi
 We recommended to use pip to install the library, e.g.
 
 ```
-sudo -H pip3 install pybind11
+conda install -c conda-forge pybind11
 ```
 (The package python3-pybind11 from the Ubuntu repositories maybe too old).
 
 Our C++ code can be build with
 
 ```
-cd src/map_building/c_utils
+cd cutils/src
 mkdir build && cd build
 cmake ..
 make
