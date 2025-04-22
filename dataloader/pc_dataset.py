@@ -79,38 +79,44 @@ class SemKITTI_sk(data.Dataset):
 
 class SemKITTI_sk_test(data.Dataset):
     def __init__(self, points, label_mapping="waymo.yaml", num_vote=1):
+        # load the same learning_map you use in SemKITTI_sk
         with open(label_mapping, 'r') as stream:
             semkittiyaml = yaml.safe_load(stream)
         self.learning_map = semkittiyaml['learning_map']
         self.num_vote = num_vote
 
+        # here `points` must be an (N×4) numpy array [x,y,z,intensity]
+        assert points.ndim == 2 and points.shape[1] == 4
         self.points = points
 
+        # For consistency with SemKITTI_sk, we pretend there's one file path
+        self.im_idx = ["<in‑memory‑scan>"]
+        # no real file, but your pipeline will expect a “path”
+
     def __len__(self):
-        'Denotes the total number of samples'
+        # exactly one scan
         return 1
 
     def __getitem__(self, index):
+        # exactly as in SemKITTI_sk, but using in‐memory points
         raw_data = self.points
         xyz, feat = raw_data[:, :3], raw_data[:, 3:4]
-        origin_len = len(raw_data)
+        origin_len = xyz.shape[0]
 
+        # since this is a “test” loader, we zero out GT labels
+        sem_data  = np.zeros((origin_len,1), dtype=np.uint8)
+        inst_data = np.zeros((origin_len,1), dtype=np.uint32)
 
-        sem_data = np.expand_dims(np.zeros_like(raw_data[:, 0], dtype=int), axis=1)
-        inst_data = np.expand_dims(np.zeros_like(raw_data[:,0], dtype=np.uint32),axis=1)
+        data_dict = {
+            'xyz':            xyz,
+            'signal':         feat,
+            'labels':         sem_data,
+            'instance_label': inst_data,
+            'origin_len':     origin_len,
+        }
 
-
-        origin_len = len(xyz)
-
-        data_dict = {}
-        data_dict['xyz'] = xyz
-        data_dict['labels'] = sem_data.astype(np.uint8)
-        data_dict['instance_label'] = inst_data
-        data_dict['signal'] = feat
-        data_dict['origin_len'] = origin_len
-
+        # return the same tuple signature: (data_dict, path)
         return data_dict, self.im_idx[index]
-
 
 
 
