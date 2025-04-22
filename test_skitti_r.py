@@ -140,8 +140,9 @@ def main_worker(local_rank, nprocs, configs):
     SemKITTI = get_pc_model_class(dataset_config['pc_dataset_type'])
 
     # val_pt_dataset = SemKITTI(data_path, imageset=val_imageset, label_mapping=label_mapping, num_vote = configs.num_vote)
-    pcd = o3d.io.read_point_cloud('sample_pointcloud.pcd')
-    points = np.asarray(pcd.points, dtype=np.float32) 
+    # pcd = o3d.io.read_point_cloud('sample_pointcloud.pcd')
+    # points = np.asarray(pcd.points, dtype=np.float32) 
+    points = np.load('pc9.npy')
     feats = np.zeros((points.shape[0],1), dtype=np.float32)
     comb_points = np.concatenate((points, feats), axis=1)
     val_pt_dataset = SemKITTI_sk_test(points = comb_points, abel_mapping=label_mapping, num_vote = configs.num_vote)
