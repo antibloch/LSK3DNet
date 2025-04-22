@@ -142,11 +142,30 @@ def main_worker(local_rank, nprocs, configs):
     # val_pt_dataset = SemKITTI(data_path, imageset=val_imageset, label_mapping=label_mapping, num_vote = configs.num_vote)
     # pcd = o3d.io.read_point_cloud('sample_pointcloud.pcd')
     # points = np.asarray(pcd.points, dtype=np.float32) 
-    points = np.load('pc9.npy')
-    feats = np.zeros((points.shape[0],1), dtype=np.float32)
-    comb_points = np.concatenate((points, feats), axis=1)
-    val_pt_dataset = SemKITTI_sk_test(points = comb_points, label_mapping=label_mapping, num_vote = configs.num_vote)
+    # 1) read .ply
+    # pcd    = o3d.io.read_point_cloud('sample_pointcloud.ply')
+    # xyz    = np.asarray(pcd.points, dtype=np.float32)   # (N,3)
+    xyz = np.load('pc9.npy').astype(np.float32)  # (N,3)
+    # if you don’t have intensity in the .ply:
+    feat   = np.zeros((xyz.shape[0],1), dtype=np.float32)
 
+    xyz_c = np.concatenate([xyz, feat], axis=1)
+    # else, if your .ply encodes intensity in colors:
+    # feat = np.asarray(pcd.colors, dtype=np.float32)[:,:1]
+
+    # 2) read your GT labels.npy
+    # labels = np.load('sample_labels.npy').astype(np.int32)  # (N,)
+    labels = np.zeros_like(xyz[:,0], dtype=np.int32)  # (N,)q
+
+    # 3) make the (N×4) points array
+    comb_points = np.concatenate([xyz, feat], axis=1)
+
+    # 4) instantiate with BOTH points & labels
+    val_pt_dataset = SemKITTI_sk_test(
+        points = comb_points,
+        labels = labels,
+        num_vote = configs.num_vote
+    )
     val_dataset = get_dataset_class(dataset_config['dataset_type'])(
         val_pt_dataset,
         config=dataset_config,
@@ -173,13 +192,35 @@ def main_worker(local_rank, nprocs, configs):
 
             # predict
             raw_labels = val_data_dict['raw_labels'].to(pytorch_device)
-            vote_logits = torch.zeros(raw_labels.shape[0], model_config['num_classes']).to(pytorch_device)
-            indices = val_data_dict['indices'].to(pytorch_device)
 
             val_data_dict['points'] = val_data_dict['points'].to(pytorch_device)
             val_data_dict['normal'] = val_data_dict['normal'].to(pytorch_device)
             val_data_dict['batch_idx'] = val_data_dict['batch_idx'].to(pytorch_device)
             val_data_dict['labels'] = val_data_dict['labels'].to(pytorch_device)
+
+
+           
+            val_data_dict['points'] = torch.tensor(xyz_c , dtype=torch.float32).to(pytorch_device)
+            val_data_dict['normal'] = torch.tensor(np.zeros((xyz.shape[0], 3)), dtype=torch.float32).to(pytorch_device)
+            val_data_dict['reference'] = torch.tensor(np.zeros((xyz.shape[0], 3)), dtype=torch.float32).to(pytorch_device)
+            val_data_dict['batch_size'] = 1
+            val_data_dict['batch_idx'] = torch.tensor(np.arange(xyz.shape[0]),dtype=torch.int32).to(pytorch_device)
+            val_data_dict['labels'] = torch.tensor(np.zeros((xyz.shape[0], 1)), dtype=torch.int32).to(pytorch_device).squeeze(1)
+            val_data_dict['raw_labels'] = torch.tensor(np.zeros((xyz.shape[0], 1)), dtype=torch.int32).to(pytorch_device)
+            val_data_dict['indices'] = torch.tensor(np.arange(xyz.shape[0]), dtype=torch.int32).to(pytorch_device)
+            
+            
+            vote_logits = torch.zeros(raw_labels.shape[0], model_config['num_classes']).to(pytorch_device)
+            indices = val_data_dict['indices'].to(pytorch_device)
+
+            print(val_data_dict['points'].shape)
+            print(val_data_dict['normal'].shape)
+            print(val_data_dict['batch_idx'].shape)
+            print(val_data_dict['labels'].shape)
+            print(val_data_dict['raw_labels'].shape)
+            print(val_data_dict['indices'].shape)
+
+
 
             val_data_dict = my_model(val_data_dict)
             logits = val_data_dict['logits']
@@ -190,6 +231,9 @@ def main_worker(local_rank, nprocs, configs):
                 vote_logits = reduce_tensor(vote_logits, nprocs)
             
             test_pred_label = vote_logits.argmax(1).cpu().detach().numpy().astype(int)
+
+            print('test_pred_label', test_pred_label.shape)
+            print(np.unique(test_pred_label))
 
             np.save('test_pred_label.npy', test_pred_label)
 

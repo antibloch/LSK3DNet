@@ -77,47 +77,37 @@ class SemKITTI_sk(data.Dataset):
 
 
 
+
 class SemKITTI_sk_test(data.Dataset):
-    def __init__(self, points, label_mapping="waymo.yaml", num_vote=1):
-        # load the same learning_map you use in SemKITTI_sk
-        with open(label_mapping, 'r') as stream:
-            semkittiyaml = yaml.safe_load(stream)
-        self.learning_map = semkittiyaml['learning_map']
-        self.num_vote = num_vote
-
-        # here `points` must be an (N×4) numpy array [x,y,z,intensity]
-        assert points.ndim == 2 and points.shape[1] == 4
-        self.points = points
-
-        # For consistency with SemKITTI_sk, we pretend there's one file path
-        self.im_idx = ["<in‑memory‑scan>"]
-        # no real file, but your pipeline will expect a “path”
+    def __init__(self, points: np.ndarray, labels: np.ndarray, num_vote: int = 1):
+        """
+        points: (N×4) float32 array [x,y,z,intensity]
+        labels: (N,) int32 array of SemKITTI class IDs
+        """
+        assert points.shape[1] == 4 and labels.shape[0] == points.shape[0]
+        self.points      = points.astype(np.float32)
+        self.labels      = labels.astype(np.int32).reshape(-1,1)
+        self.num_vote    = num_vote
+        self.imageset    = 'test'                  # so wrapper sees “test” mode
+        self.im_idx      = ["<in_memory_scan>"]    # so downstream code can do path = self.im_idx[i]
 
     def __len__(self):
-        # exactly one scan
         return 1
 
     def __getitem__(self, index):
-        # exactly as in SemKITTI_sk, but using in‐memory points
-        raw_data = self.points
-        xyz, feat = raw_data[:, :3], raw_data[:, 3:4]
-        origin_len = xyz.shape[0]
+        xyz, feat   = self.points[:, :3], self.points[:, 3:4]
+        origin_len  = xyz.shape[0]
 
-        # since this is a “test” loader, we zero out GT labels
-        sem_data  = np.zeros((origin_len,1), dtype=np.uint8)
-        inst_data = np.zeros((origin_len,1), dtype=np.uint32)
-
-        data_dict = {
-            'xyz':            xyz,
-            'signal':         feat,
-            'labels':         sem_data,
-            'instance_label': inst_data,
-            'origin_len':     origin_len,
-        }
-
-        # return the same tuple signature: (data_dict, path)
+        # now use your real GT labels, not zeros
+        sem_data     = self.labels.astype(np.uint8)   # (N,1)
+        inst_data    = np.zeros_like(sem_data, dtype=np.uint32)
+        data_dict = {}
+        data_dict['xyz']            = xyz
+        data_dict['signal']         = feat
+        data_dict['labels']         = sem_data
+        data_dict['instance_label'] = inst_data
+        data_dict['origin_len']     = origin_len
         return data_dict, self.im_idx[index]
-
 
 
 @register_dataset
